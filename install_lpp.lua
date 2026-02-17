@@ -7,10 +7,10 @@ local f = io.open(path, "w")
 if f then f:write(content); f:close() else print("Error writing: " .. path) end
     end
 
-    -- 1. create Directory for install
+    -- dir
     os.execute(is_windows and ('mkdir "' .. install_path .. '" 2>nul') or ('mkdir -p "' .. install_path .. '"'))
 
-    -- 2. THE TRANSPILER (logic.lua)
+    -- TRANSPILE 
     local transpiler_logic = [===[
         local M = {}
         local install_path = "]===] .. install_path:gsub("\\", "\\\\") .. [===["
@@ -61,7 +61,7 @@ if f then f:write(content); f:close() else print("Error writing: " .. path) end
                         return M
         ]===] -- do not question my lexer/parser or whatever this is called, punni01.
 
-        -- 3. THE ENGINE (luapp_engine.lua)
+        -- CORE    
         local engine_code = [===[
             local install_path = "]===] .. install_path:gsub("\\", "\\\\") .. [===["
             local path_sep = package.config:sub(1,1)
