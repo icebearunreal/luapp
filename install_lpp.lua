@@ -7,7 +7,7 @@ local f = io.open(path, "w")
 if f then f:write(content); f:close() else print("Error writing: " .. path) end
     end
 
-    -- 1. Create Directory
+    -- 1. create Directory for install
     os.execute(is_windows and ('mkdir "' .. install_path .. '" 2>nul') or ('mkdir -p "' .. install_path .. '"'))
 
     -- 2. THE TRANSPILER (logic.lua)
@@ -59,7 +59,7 @@ if f then f:write(content); f:close() else print("Error writing: " .. path) end
                         return "local ffi = require('ffi')\n" .. code
                         end
                         return M
-        ]===]
+        ]===] -- do not question my lexer/parser or whatever this is called, punni01.
 
         -- 3. THE ENGINE (luapp_engine.lua)
         local engine_code = [===[
@@ -102,13 +102,13 @@ if f then f:write(content); f:close() else print("Error writing: " .. path) end
                         local ok, run_err = pcall(func)
                         if not ok then print("\27[31mRuntime Error:\27[0m " .. run_err) end
                             end
-                        ]===]
+                        ]===] -- cursed. I hate this. i DONT Want to continue maintaining (jk this is the most fun i've ever had)
 
-                        -- 4. Write Files
+                        -- 4. write
                         write_file(install_path .. "/transpiler.lua", transpiler_logic)
                         write_file(install_path .. "/luapp_engine.lua", engine_code)
 
-                        -- 5. Create Executable
+                        -- 5. make executable depending on uh the OS you have
                         local bin_path = install_path .. (is_windows and "\\luapp.bat" or "/luapp")
                         if is_windows then
                             write_file(bin_path, "@echo off\nluajit \"" .. install_path .. "\\luapp_engine.lua\" %*")
