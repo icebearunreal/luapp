@@ -1,6 +1,6 @@
 # LUA++
 
-**lua++** is a powerful superset of **Lua** featuring native classes, type hinting, and seamless low-level integration. It is designed to provide the structure of modern languages while retaining the legendary speed of the LuaJIT runtime.
+**lua++** is a powerful superset of **Lua** featuring native classes, type hinting, and uh also low-level integration. It is designed to provide the structure of modern languages while retaining the legendary speed of the LuaJIT runtime.
 
 
 
@@ -29,7 +29,7 @@ Soon, I'll deviate from the lovely Lua syntax. Although we'll still have **backw
 
 ---
 
-### ⌨️ Implementation Preview
+###  Implementation Preview
 
 ```lua
 // Modern Class Definition
@@ -43,3 +43,4 @@ run_c[[
 ]]
 
 LinkTo "utils/vector.lpp"
+i LOVE lua.
