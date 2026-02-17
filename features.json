@@ -1,0 +1,10 @@
+{
+  "rules": [
+    { "pattern": "//", "replace": "--" },
+    { "pattern": "var%s+(%w+):%s*%w+", "replace": "local %1" },
+    { "pattern": "var%s+(%w+)%s*=", "replace": "local %1 =" },
+    { "pattern": "([%w%.]+)%s*+=%s*(.-)\n", "replace": "%1 = %1 + %2\n" },
+    { "pattern": "LinkTo%s*\"(.-)\"", "replace": "require('%1')" },
+    { "pattern": "run_c%s*%[%[(.-)%]%]", "replace": "ffi.cdef[[%1]]" }
+  ]
+}

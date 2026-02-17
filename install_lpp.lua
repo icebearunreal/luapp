@@ -1,100 +1,121 @@
 local is_windows = package.config:sub(1,1) == "\\"
+local home = is_windows and os.getenv("USERPROFILE") or os.getenv("HOME")
+local install_path = home .. (is_windows and "\\.lpp" or "/.lpp")
 
-local function ask(question)
-io.write(question .. " (Y/N): ")
-local answer = io.read():lower()
-return answer == "y"
-end
-print([[
-    ==========================================
-    Hello! Welcome to Lua++ (lpp)
-    A project made by icebearunreal
-    ==========================================
-]])
--- bunch of prompts that you will face here
-if not ask("Install to system?") then os.exit() end
+local function write_file(path, content)
+local f = io.open(path, "w")
+if f then f:write(content); f:close() else print("Error writing: " .. path) end
+    end
 
-    local home = is_windows and os.getenv("USERPROFILE") or os.getenv("HOME") 
-    local install_path = home .. (is_windows and "\\.lpp" or "/.lpp")
+    -- 1. Create Directory
+    os.execute(is_windows and ('mkdir "' .. install_path .. '" 2>nul') or ('mkdir -p "' .. install_path .. '"'))
 
-    if is_windows then -- detect operating system
-        os.execute('mkdir "' .. install_path .. '" 2>nul')
-        else
-            os.execute('mkdir -p "' .. install_path .. '"') -- else is NOT LInux it is unix. (Linux / MAC) i am NOT a lazy dev
-            end
-            -- here is the grammar/dictionary/ whatever you want to call it. defines EVERYTHING that's lovely and thats holy
-            local engine_code = [[
-                local function transpile(code)
-                code = code:gsub("//", "--")
-                code = code:gsub("([Ll]ink[Tt]o)%s+[\"'](.-)[\"']", function(_, path)
-                local mod = path:gsub("%.lpp$", ""):gsub("^/", ""):gsub("/", ".")
-                return string.format('%s = require("%s")', mod:match("[^%.]+$"), mod)
-                end)
-                -- Fixed: Classes are no longer local so they can be exported/imported via LinkTo
-                code = code:gsub("class%s+(%w+)", function(className)
-                return string.format("%s = {}; %s.__index = %s; function %s.new(o) o = o or {}; setmetatable(o, %s); return o end",
-                                     className, className, className, className, className)
-                end)
-                code = code:gsub("var%s+(%w+):%s*%w+", "local %1")
-                code = code:gsub("luapp.out", "print")
-                return code
+    -- 2. THE TRANSPILER (logic.lua)
+    local transpiler_logic = [===[
+        local M = {}
+        local install_path = "]===] .. install_path:gsub("\\", "\\\\") .. [===["
+
+        function M.load_features()
+        local f = io.open(install_path .. "/features.json", "r")
+        if not f then return {} end
+            local content = f:read("*all")
+            f:close()
+            local rules = {}
+            for pat, rep in content:gmatch('"pattern":%s*"(.-)".-"replace":%s*"(.-)"') do
+                table.insert(rules, {pat = pat, rep = rep})
+                end
+                return rules
                 end
 
-                table.insert(package.loaders or package.searchers, 1, function(modname) 
-                local filename = modname:gsub("%.", "/") .. ".lpp"
-                local f = io.open(filename, "r")
-                if f then
-                    local content = f:read("*all")
-                    f:close()
-                    -- Append 'return ClassName' logic for LinkTo
-                    local className = content:match("class%s+(%w+)")
-                    local transformed = transpile(content)
-                    if className then transformed = transformed .. "\nreturn " .. className end
-                        return loadstring(transformed, filename)
+                function M.run(code)
+                local features = M.load_features()
+                local strings = {}
+
+                -- Protect Strings
+                code = code:gsub('"(.-)"', function(s)
+                table.insert(strings, '"' .. s .. '"')
+                return "___LPP_STR_" .. #strings .. "___"
+                end)
+                code = code:gsub("'(.-)'", function(s)
+                table.insert(strings, "'" .. s .. "'")
+                return "___LPP_STR_" .. #strings .. "___"
+                end)
+
+                -- Apply JSON Rules
+                for _, rule in ipairs(features) do
+                    code = code:gsub(rule.pat, rule.rep)
+                    end
+
+                    -- Core Class Logic
+                    code = code:gsub("class%s+(%w+)", function(name)
+                    return name .. " = {}; " .. name .. ".__index = " .. name .. "; function " .. name .. ".new(o) o = o or {}; setmetatable(o, " .. name .. "); return o end"
+                    end)
+
+                    -- Restore Strings
+                    for i, s in ipairs(strings) do
+                        code = code:gsub("___LPP_STR_" .. i .. "___", s, 1)
                         end
-                        return "\n\tno file '" .. filename .. "' (LuaPP Searcher)"
-                        end)
 
-                local target = arg[1] or "main.lpp"
-                local f = io.open(target, "r")
-                if not f then print("Error: Could not find '" .. target .. "'") os.exit(1) end
-                    local main_code = f:read("*all")
-                    f:close()
+                        return "local ffi = require('ffi')\n" .. code
+                        end
+                        return M
+        ]===]
 
-                    local func, err = loadstring(transpile(main_code), target)
-                    if not func then
-                        print("\27[31mCompiler Error:\27[0m\n" .. err)
+        -- 3. THE ENGINE (luapp_engine.lua)
+        local engine_code = [===[
+            local install_path = "]===] .. install_path:gsub("\\", "\\\\") .. [===["
+            local path_sep = package.config:sub(1,1)
+            package.path = install_path .. path_sep .. "?.lua;" .. package.path
+
+            local ffi = require("ffi")
+            local transpiler = require("transpiler")
+
+            -- Define Globals for the LPP environment
+            _G.ffi = ffi
+            _G.std = {
+                out = print,
+                c = ffi.C,
+                gui = {
+                    alert = function(title, msg)
+                    if ffi.os == "Windows" then
+                        ffi.cdef[[int MessageBoxA(void*, const char*, const char*, int);]]
+                        ffi.C.MessageBoxA(nil, msg, title, 0)
                         else
-                            local ok, run_err = pcall(func)
-                            if not ok then print("\27[31mRuntime Error:\27[0m " .. run_err) end
+                            os.execute(string.format('zenity --info --title="%s" --text="%s" 2>/dev/null || echo "%s"', title, msg, msg))
+                            end
+                            end
+                }
+            }
+
+            local target = arg[1] or "main.lpp"
+            local f = io.open(target, "r")
+            if not f then print("Error: " .. target .. " not found") os.exit(1) end
+                local main_code = f:read("*all")
+                f:close()
+
+                local transformed = transpiler.run(main_code)
+                local func, err = loadstring(transformed, target)
+                if not func then
+                    print("\27[31mCompiler Error:\27[0m\n" .. err)
+                    else
+                        setfenv(func, _G)
+                        local ok, run_err = pcall(func)
+                        if not ok then print("\27[31mRuntime Error:\27[0m " .. run_err) end
+                            end
+                        ]===]
+
+                        -- 4. Write Files
+                        write_file(install_path .. "/transpiler.lua", transpiler_logic)
+                        write_file(install_path .. "/luapp_engine.lua", engine_code)
+
+                        -- 5. Create Executable
+                        local bin_path = install_path .. (is_windows and "\\luapp.bat" or "/luapp")
+                        if is_windows then
+                            write_file(bin_path, "@echo off\nluajit \"" .. install_path .. "\\luapp_engine.lua\" %*")
+                            else
+                                write_file(bin_path, "#!/bin/bash\nluajit \"" .. install_path .. "/luapp_engine.lua\" \"$@\"")
+                                os.execute("chmod +x \"" .. bin_path .. "\"")
                                 end
-                            ]]
 
-                            local engine_file_path = install_path .. (is_windows and "\\luapp_engine.lua" or "/luapp_engine.lua")
-                            local ef = io.open(engine_file_path, "w")
-                            ef:write(engine_code)
-                            ef:close()
-
-                            local bin_path = install_path .. (is_windows and "\\luapp.bat" or "/luapp")
-                            if is_windows then
-                                local bat = io.open(bin_path, "w")
-                                bat:write("@echo off\nluajit \"" .. engine_file_path .. "\" %*")
-                                bat:close()
-                                else
-                                    local sh = io.open(bin_path, "w")
-                                    sh:write("#!/bin/bash\nluajit \"" .. engine_file_path .. "\" \"$@\"")
-                                    sh:close()
-                                    os.execute("chmod +x \"" .. bin_path .. "\"")
-                                    end
-
-                                    if ask("Add to path?") then -- add to path so u can run anywehre NOT TESTED ON 
-                                        if is_windows then
-                                            os.execute('setx Path "%Path%;' .. install_path .. '"')
-                                            else
-                                                local shell_rc = os.getenv("HOME") .. (os.getenv("SHELL"):find("zsh") and "/.zshrc" or "/.bashrc")
-                                                local f = io.open(shell_rc, "a")
-                                                f:write('\nexport PATH="$PATH:' .. install_path .. '"\n')
-                                                f:close()
-                                                end
-                                                print("Installed to: " .. install_path)
-                                                end
+                                print("Toolchain installed to: " .. install_path)
+                                print("Run 'luajit install_lpp.lua' whenever you change your features.json!")

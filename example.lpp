@@ -1,0 +1,20 @@
+name = "class HELLO"
+print(name)
+
+class Zombie
+    name = "glargo"
+    hp = 100
+
+function Zombie:takedamage(amount)
+    self.hp = self.hp - amount
+    print("OW! LOST " .. amount .. " HP! Remaining: " .. self.hp)
+end
+
+var zomber: Zombie = Zombie.new({ name = "Pogo", hp = 150 })
+zomber:takedamage(20)
+
+run_c[[
+    double pow(double x, double y);
+]]
+
+print("C Power Result: " .. std.c.pow(2, 8))
