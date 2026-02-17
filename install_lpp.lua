@@ -11,17 +11,18 @@ print([[
     A project made by icebearunreal
     ==========================================
 ]])
+-- bunch of prompts that you will face here
 if not ask("Install to system?") then os.exit() end
 
-    local home = is_windows and os.getenv("USERPROFILE") or os.getenv("HOME")
+    local home = is_windows and os.getenv("USERPROFILE") or os.getenv("HOME") 
     local install_path = home .. (is_windows and "\\.lpp" or "/.lpp")
 
-    if is_windows then
+    if is_windows then -- detect operating system
         os.execute('mkdir "' .. install_path .. '" 2>nul')
         else
-            os.execute('mkdir -p "' .. install_path .. '"')
+            os.execute('mkdir -p "' .. install_path .. '"') -- else is NOT LInux it is unix. (Linux / MAC) i am NOT a lazy dev
             end
-
+            -- here is the grammar/dictionary/ whatever you want to call it. defines EVERYTHING that's lovely and thats holy
             local engine_code = [[
                 local function transpile(code)
                 code = code:gsub("//", "--")
@@ -35,11 +36,11 @@ if not ask("Install to system?") then os.exit() end
                                      className, className, className, className, className)
                 end)
                 code = code:gsub("var%s+(%w+):%s*%w+", "local %1")
-                code = code:gsub("inpout.output", "print")
+                code = code:gsub("luapp.out", "print")
                 return code
                 end
 
-                table.insert(package.loaders or package.searchers, 1, function(modname)
+                table.insert(package.loaders or package.searchers, 1, function(modname) 
                 local filename = modname:gsub("%.", "/") .. ".lpp"
                 local f = io.open(filename, "r")
                 if f then
@@ -86,7 +87,7 @@ if not ask("Install to system?") then os.exit() end
                                     os.execute("chmod +x \"" .. bin_path .. "\"")
                                     end
 
-                                    if ask("Add to path?") then
+                                    if ask("Add to path?") then -- add to path so u can run anywehre NOT TESTED ON 
                                         if is_windows then
                                             os.execute('setx Path "%Path%;' .. install_path .. '"')
                                             else
